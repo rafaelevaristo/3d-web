@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flamingo Control Center</title>
+    <style>
+        /* Garante que o cenário ocupa o ecrã todo */
+        body { 
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden; 
+            background-color: #bfe3dd; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        canvas { display: block; }
+
+        /* Estilo da Rosa dos Ventos */
+        .controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: grid;
+            grid-template-areas: 
+                ". north ."
+                "west . east"
+                ". south .";
+            gap: 15px;
+            z-index: 10;
+        }
+
+        button {
+            width: 60px;
+            height: 60px;
+            border: 2px solid #333;
+            border-radius: 50%;
+            background: white;
+            color: #333;
+            font-weight: bold;
+            font-size: 1.2rem;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #333;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        button:active { transform: scale(0.95); }
+
+        .n { grid-area: north; }
+        .s { grid-area: south; }
+        .e { grid-area: east; }
+        .w { grid-area: west; }
+
+        /* Legenda informativa */
+        .info {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="info">
+        <h1>Controlo do Flamingo</h1>
+        <p>Usa os botões abaixo para rodar o modelo em 10°</p>
+    </div>
+
+    <div class="controls">
+        <button class="n" id="btnN">N</button>
+        <button class="s" id="btnS">S</button>
+        <button class="e" id="btnE">E</button>
+        <button class="w" id="btnW">O</button>
+    </div>
+
+    <!-- Import Map para Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        // --- 1. CENA E RENDERER ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xbfe3dd);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // --- 2. CÂMARA CENTRALIZADA ---
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // Z=15 dá distância, Y=0 coloca a câmara ao nível dos olhos do modelo
+        camera.position.set(0, 0, 15); 
+        camera.lookAt(0, 0, 0);
+
+        // --- 3. ILUMINAÇÃO ---
+        const dirLight = new THREE.DirectionalLight(0xffffff, 3);
+        dirLight.position.set(5, 10, 7.5);
+        scene.add(dirLight);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+
+        // --- 4. CARREGAMENTO DO MODELO ---
+        let flamingo, mixer;
+        const clock = new THREE.Clock();
+        const loader = new GLTFLoader();
+
+        // URL oficial do modelo Flamingo da Three.js
+        const url = 'Flamingo.glb';
+
+        loader.load(url, (gltf) => {
+            flamingo = gltf.scene.children[0];
+            
+            // Redimensionar e centralizar
+            flamingo.scale.set(0.05, 0.05, 0.05);
+            flamingo.position.set(0, 0, 0); // Garante que está no meio
+            
+            scene.add(flamingo);
+
+            // Iniciar animação de voo
+            mixer = new THREE.AnimationMixer(flamingo);
+            mixer.clipAction(gltf.animations[0]).play();
+            
+            console.log("Flamingo carregado com sucesso!");
+        });
+
+        // --- 5. LÓGICA DOS BOTÕES (Rosa dos Ventos) ---
+        const step = 10 * (Math.PI / 180); // 10 graus em radianos
+
+        document.getElementById('btnN').onclick = () => {
+            if (flamingo) flamingo.rotation.x -= step; // Inclina para a frente
+        };
+        document.getElementById('btnS').onclick = () => {
+            if (flamingo) flamingo.rotation.x += step; // Inclina para trás
+        };
+        document.getElementById('btnE').onclick = () => {
+            if (flamingo) flamingo.rotation.y += step; // Roda para a direita
+        };
+        document.getElementById('btnW').onclick = () => {
+            if (flamingo) flamingo.rotation.y -= step; // Roda para a esquerda
+        };
+
+        // --- 6. ANIMAÇÃO E REDIMENSIONAMENTO ---
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const delta = clock.getDelta();
+            if (mixer) mixer.update(delta);
+            
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
