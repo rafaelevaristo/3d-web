@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js Flamingo Load</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #bfe3dd; }
+        canvas { display: block; }
+        #changeColorBtn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <button id="changeColorBtn">Mudar Cor</button>
+    <!-- Import Map para gerir as dependências da Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        // 1. Configuração Básica da Cena
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xbfe3dd);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 2, 10);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // 2. Iluminação
+        const dirLight = new THREE.DirectionalLight(0xffffff, 3);
+        dirLight.position.set(5, 10, 7.5);
+        scene.add(dirLight);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+
+        // 3. Variáveis para Animação e Controlo do Rato
+        let mixer;
+        let gateMesh = null;
+        const clock = new THREE.Clock();
+        let isDragging = false;
+        let previousPointerPosition = { x: 0, y: 0 };
+        const rotationSpeed = 0.005;
+
+        const canvas = renderer.domElement;
+        canvas.style.touchAction = 'none';
+        canvas.addEventListener('pointerdown', (event) => {
+            isDragging = true;
+            previousPointerPosition.x = event.clientX;
+            previousPointerPosition.y = event.clientY;
+        });
+
+        const stopDragging = () => {
+            isDragging = false;
+        };
+
+        canvas.addEventListener('pointerup', stopDragging);
+        canvas.addEventListener('pointerleave', stopDragging);
+        canvas.addEventListener('pointercancel', stopDragging);
+
+        canvas.addEventListener('pointermove', (event) => {
+            if (!isDragging || !gateMesh) return;
+
+            const deltaX = event.clientX - previousPointerPosition.x;
+            const deltaY = event.clientY - previousPointerPosition.y;
+
+            gateMesh.rotation.y += deltaX * rotationSpeed;
+            gateMesh.rotation.x += deltaY * rotationSpeed;
+            gateMesh.rotation.x = Math.max(-Math.PI / 4, Math.min(Math.PI / 4, gateMesh.rotation.x));
+
+            previousPointerPosition.x = event.clientX;
+            previousPointerPosition.y = event.clientY;
+        });
+
+        // 4. Carregar o Modelo Flamingo.glb
+        const loader = new GLTFLoader();
+        // Nota: Substitui pelo caminho local se tiveres o ficheiro, 
+        // ou usa o link direto do repositório da Three.js para testes:
+        const url = '/gate_2.glb';
+
+        loader.load(url, (gltf) => {
+            gateMesh = gltf.scene;
+            
+            // Ajustar escala e posição se necessário
+            gateMesh.scale.set(0.05, 0.05, 0.05);
+            gateMesh.position.y = 2;
+            
+            scene.add(gateMesh);
+
+            // Configurar a animação
+            mixer = new THREE.AnimationMixer(gateMesh);
+            mixer.clipAction(gltf.animations[0]).play();
+
+            // Botão para mudar cor
+            document.getElementById('changeColorBtn').addEventListener('click', () => {
+                if (gateMesh.children.length >= 2) {
+                    const firstObject = gateMesh.children[0];
+                    const secondObject = gateMesh.children[1];
+                    if (firstObject.isMesh && firstObject.material) {
+                        firstObject.material.color.set(0xff0000);
+                    }
+                    if (secondObject.isMesh && secondObject.material) {
+                        secondObject.material.color.set(0xff0000);
+                    }
+                }
+            });
+
+        }, undefined, (error) => {
+            console.error('Erro ao carregar o modelo:', error);
+        });
+
+        // 5. Ciclo de Renderização (Loop)
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+            if (mixer) mixer.update(delta); // Atualiza a animação do pássaro
+
+            renderer.render(scene, camera);
+        }
+
+        // Ajustar redimensionamento da janela
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
